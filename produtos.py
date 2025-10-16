@@ -422,8 +422,18 @@ class Produtos(ctk.CTkFrame):
         ).pack(side="left", padx=5)
         
         # Botões de ação
-        frame_acoes = ctk.CTkFrame(frame, fg_color="transparent", width=100)
+        frame_acoes = ctk.CTkFrame(frame, fg_color="transparent", width=140)
         frame_acoes.pack(side="left", padx=5)
+        
+        btn_historico = ctk.CTkButton(
+            frame_acoes,
+            text="📈",
+            width=35,
+            fg_color="#ff7f0e",
+            hover_color="#e67300",
+            command=lambda: self.ver_historico_precos(produto['id'])
+        )
+        btn_historico.pack(side="left", padx=2)
         
         btn_editar = ctk.CTkButton(
             frame_acoes,
@@ -442,6 +452,11 @@ class Produtos(ctk.CTkFrame):
             command=lambda: self.excluir_produto(produto['id'])
         )
         btn_excluir.pack(side="left", padx=2)
+    
+    def ver_historico_precos(self, produto_id):
+        """Abre janela de histórico de preços"""
+        from historico_precos import HistoricoPrecos
+        HistoricoPrecos(self, self.db, produto_id)
     
     def filtrar_produtos(self):
         """Filtra produtos por busca e categoria"""

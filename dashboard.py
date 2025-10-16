@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from database import Database
 from utils import Formatador, Periodo
+from components import AnimatedCard, LoadingSpinner, ProgressCircle, show_loading, hide_loading
 
 class Dashboard(ctk.CTkFrame):
     def __init__(self, parent, db: Database):
@@ -150,8 +151,8 @@ class Dashboard(ctk.CTkFrame):
             self.frame_cards.columnconfigure(i, weight=1)
     
     def criar_card(self, parent, titulo, valor, cor):
-        """Cria um card de KPI"""
-        card = ctk.CTkFrame(parent, corner_radius=10)
+        """Cria um card de KPI com animação"""
+        card = AnimatedCard(parent, corner_radius=15)
         
         # Título do card
         label_titulo = ctk.CTkLabel(

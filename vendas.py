@@ -234,7 +234,8 @@ class Vendas(ctk.CTkFrame):
             ("Produto", 180),
             ("Qtd", 50),
             ("Total", 100),
-            ("Cliente", 120)
+            ("Cliente", 120),
+            ("Ações", 80)
         ]
         
         for texto, largura in headers:
@@ -443,6 +444,36 @@ class Vendas(ctk.CTkFrame):
         # Cliente
         cliente_texto = venda['cliente'][:15] + "..." if venda['cliente'] and len(venda['cliente']) > 15 else (venda['cliente'] or "-")
         ctk.CTkLabel(frame, text=cliente_texto, width=120).pack(side="left", padx=5)
+        
+        # Botão Excluir
+        btn_excluir = ctk.CTkButton(
+            frame,
+            text="🗑️",
+            width=80,
+            fg_color="#d62728",
+            hover_color="#c82333",
+            command=lambda v_id=venda['id']: self.confirmar_exclusao(v_id)
+        )
+        btn_excluir.pack(side="left", padx=5)
+    
+    def confirmar_exclusao(self, venda_id):
+        """Confirma exclusão de venda"""
+        from tkinter import messagebox
+        
+        resposta = messagebox.askyesno(
+            "Confirmar Exclusão",
+            "Tem certeza que deseja excluir esta venda?\n\n"
+            "⚠️ O estoque será devolvido ao produto.\n"
+            "Esta ação não pode ser desfeita!"
+        )
+        
+        if resposta:
+            if self.db.excluir_venda(venda_id):
+                messagebox.showinfo("Sucesso", "✅ Venda excluída com sucesso!\nEstoque devolvido ao produto.")
+                self.atualizar_lista()
+                self.carregar_produtos()  # Atualizar lista de produtos
+            else:
+                messagebox.showerror("Erro", "❌ Erro ao excluir venda.")
     
     def exportar_pdf(self):
         """Exporta vendas para PDF"""

@@ -104,11 +104,52 @@ class Database:
             )
         ''')
         
+        # Tabela de metas
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS metas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo TEXT NOT NULL,
+                valor_meta REAL NOT NULL,
+                periodo TEXT NOT NULL,
+                data_inicio DATE NOT NULL,
+                data_fim DATE NOT NULL,
+                ativo INTEGER DEFAULT 1,
+                data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         conn.commit()
         conn.close()
         
+        # Criar índices para melhor performance
+        self.criar_indices()
+        
         # Inserir configurações padrão
         self.init_default_configs()
+    
+    def criar_indices(self):
+        """Cria índices para otimizar consultas"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        # Índices para melhorar performance
+        indices = [
+            "CREATE INDEX IF NOT EXISTS idx_produtos_categoria ON produtos(categoria_id)",
+            "CREATE INDEX IF NOT EXISTS idx_produtos_ativo ON produtos(ativo)",
+            "CREATE INDEX IF NOT EXISTS idx_vendas_produto ON vendas(produto_id)",
+            "CREATE INDEX IF NOT EXISTS idx_vendas_data ON vendas(data_venda)",
+            "CREATE INDEX IF NOT EXISTS idx_despesas_data ON despesas(data_despesa)",
+            "CREATE INDEX IF NOT EXISTS idx_historico_produto ON historico_precos(produto_id)"
+        ]
+        
+        for idx in indices:
+            try:
+                cursor.execute(idx)
+            except:
+                pass  # Índice já existe
+        
+        conn.commit()
+        conn.close()
     
     def init_default_configs(self):
         """Inicializa configurações padrão"""
@@ -383,6 +424,50 @@ class Database:
         conn.close()
         return vendas
     
+    def excluir_venda(self, venda_id: int) -> bool:
+        """
+        Exclui uma venda e devolve o estoque
+        Retorna True se bem-sucedido, False caso contrário
+        """
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Buscar dados da venda antes de excluir
+            cursor.execute('''
+                SELECT produto_id, quantidade 
+                FROM vendas 
+                WHERE id = ?
+            ''', (venda_id,))
+            
+            venda = cursor.fetchone()
+            if not venda:
+                conn.close()
+                return False
+            
+            produto_id, quantidade = venda
+            
+            # Devolver o estoque ao produto
+            cursor.execute('''
+                UPDATE produtos 
+                SET estoque = estoque + ?, 
+                    data_atualizacao = ?
+                WHERE id = ?
+            ''', (quantidade, datetime.now(), produto_id))
+            
+            # Excluir a venda
+            cursor.execute('DELETE FROM vendas WHERE id = ?', (venda_id,))
+            
+            conn.commit()
+            conn.close()
+            return True
+            
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            print(f"Erro ao excluir venda: {e}")
+            return False
+    
     # ==================== DESPESAS ====================
     
     def adicionar_despesa(self, descricao: str, valor: float, categoria: str,
@@ -578,3 +663,88 @@ class Database:
         ''', (chave, valor, datetime.now()))
         conn.commit()
         conn.close()
+    
+    # ==================== METAS ====================
+    
+    def adicionar_meta(self, tipo: str, valor_meta: float, periodo: str,
+                      data_inicio: str, data_fim: str) -> int:
+        """Adiciona uma nova meta"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO metas (tipo, valor_meta, periodo, data_inicio, data_fim)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (tipo, valor_meta, periodo, data_inicio, data_fim))
+        conn.commit()
+        meta_id = cursor.lastrowid
+        conn.close()
+        return meta_id
+    
+    def listar_metas(self, apenas_ativas: bool = True) -> List[Dict]:
+        """Lista metas"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        query = 'SELECT * FROM metas'
+        if apenas_ativas:
+            query += ' WHERE ativo = 1'
+        query += ' ORDER BY data_criacao DESC'
+        
+        cursor.execute(query)
+        metas = []
+        for row in cursor.fetchall():
+            metas.append({
+                'id': row[0],
+                'tipo': row[1],
+                'valor_meta': row[2],
+                'periodo': row[3],
+                'data_inicio': row[4],
+                'data_fim': row[5],
+                'ativo': row[6],
+                'data_criacao': row[7]
+            })
+        conn.close()
+        return metas
+    
+    def desativar_meta(self, meta_id: int):
+        """Desativa uma meta"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE metas SET ativo = 0 WHERE id = ?', (meta_id,))
+        conn.commit()
+        conn.close()
+    
+    def progresso_meta(self, meta_id: int) -> Dict:
+        """Calcula progresso de uma meta"""
+        metas = self.listar_metas(apenas_ativas=False)
+        meta = next((m for m in metas if m['id'] == meta_id), None)
+        
+        if not meta:
+            return {}
+        
+        data_inicio = meta['data_inicio']
+        data_fim = meta['data_fim']
+        
+        if meta['tipo'] == 'RECEITA':
+            resumo = self.get_resumo_vendas(data_inicio, data_fim)
+            valor_atual = resumo['receita_total']
+        elif meta['tipo'] == 'LUCRO':
+            lucro_data = self.get_lucro_periodo(data_inicio, data_fim)
+            valor_atual = lucro_data['lucro_liquido']
+        elif meta['tipo'] == 'VENDAS':
+            resumo = self.get_resumo_vendas(data_inicio, data_fim)
+            valor_atual = resumo['total_vendas']
+        else:
+            valor_atual = 0
+        
+        valor_meta = meta['valor_meta']
+        percentual = (valor_atual / valor_meta * 100) if valor_meta > 0 else 0
+        
+        return {
+            'meta': meta,
+            'valor_atual': valor_atual,
+            'valor_meta': valor_meta,
+            'percentual': percentual,
+            'atingido': valor_atual >= valor_meta,
+            'falta': max(0, valor_meta - valor_atual)
+        }

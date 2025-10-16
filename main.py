@@ -10,6 +10,7 @@ from produtos import Produtos
 from vendas import Vendas
 from financeiro import Financeiro
 from configuracoes import Configuracoes
+from relatorios import RelatoriosAvancados
 import sys
 
 class App(ctk.CTk):
@@ -44,6 +45,12 @@ class App(ctk.CTk):
         
         # Mostrar dashboard inicial
         self.mostrar_dashboard()
+        
+        # Executar otimizações ao iniciar
+        try:
+            self.db.criar_indices()
+        except:
+            pass  # Índices já podem existir
     
     def carregar_configuracoes(self):
         """Carrega configurações do sistema"""
@@ -60,7 +67,7 @@ class App(ctk.CTk):
         """Cria menu de navegação lateral"""
         self.frame_nav = ctk.CTkFrame(self, width=250, corner_radius=0)
         self.frame_nav.grid(row=0, column=0, sticky="nsew")
-        self.frame_nav.grid_rowconfigure(7, weight=1)
+        self.frame_nav.grid_rowconfigure(8, weight=1)
         
         # Logo/Título
         logo_frame = ctk.CTkFrame(self.frame_nav, fg_color="transparent")
@@ -106,10 +113,16 @@ class App(ctk.CTk):
             row=4
         )
         
+        self.btn_relatorios = self.criar_botao_nav(
+            "📊 Relatórios",
+            self.mostrar_relatorios,
+            row=5
+        )
+        
         self.btn_config = self.criar_botao_nav(
             "⚙️ Configurações",
             self.mostrar_configuracoes,
-            row=5
+            row=6
         )
         
         # Botão sair (no final)
@@ -122,7 +135,7 @@ class App(ctk.CTk):
             height=40,
             font=ctk.CTkFont(size=14)
         )
-        btn_sair.grid(row=8, column=0, padx=20, pady=20, sticky="ew")
+        btn_sair.grid(row=9, column=0, padx=20, pady=20, sticky="ew")
         
         # Informação da versão
         label_versao = ctk.CTkLabel(
@@ -131,7 +144,7 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=10),
             text_color="gray"
         )
-        label_versao.grid(row=9, column=0, pady=(0, 10))
+        label_versao.grid(row=10, column=0, pady=(0, 10))
     
     def criar_botao_nav(self, texto, comando, row):
         """Cria um botão de navegação"""
@@ -157,6 +170,7 @@ class App(ctk.CTk):
             self.btn_produtos,
             self.btn_vendas,
             self.btn_financeiro,
+            self.btn_relatorios,
             self.btn_config
         ]
         
@@ -209,6 +223,14 @@ class App(ctk.CTk):
         
         financeiro = Financeiro(self.frame_conteudo, self.db)
         financeiro.grid(row=0, column=0, sticky="nsew")
+    
+    def mostrar_relatorios(self):
+        """Mostra a tela de Relatórios Avançados"""
+        self.limpar_conteudo()
+        self.destacar_botao(self.btn_relatorios)
+        
+        relatorios = RelatoriosAvancados(self.frame_conteudo, self.db)
+        relatorios.grid(row=0, column=0, sticky="nsew")
     
     def mostrar_configuracoes(self):
         """Mostra a tela de Configurações"""
