@@ -628,21 +628,25 @@ def show_produtos():
                                                 else:
                                                     novo_estoque -= quantidade
                                                     # Atualizar para o novo valor (estoque atual - quantidade)
-                                                    cursor = st.session_state.db.conn.cursor()
+                                                    conn = st.session_state.db.get_connection()
+                                                    cursor = conn.cursor()
                                                     cursor.execute(
-                                                        "UPDATE produtos SET estoque = ? WHERE id = ?",
-                                                        (novo_estoque, produto['id'])
+                                                        "UPDATE produtos SET estoque = ?, data_atualizacao = ? WHERE id = ?",
+                                                        (novo_estoque, datetime.now(), produto['id'])
                                                     )
-                                                    st.session_state.db.conn.commit()
+                                                    conn.commit()
+                                                    conn.close()
                                                     st.success(f"✅ {quantidade} unidades removidas! Novo estoque: {novo_estoque}")
                                                     
                                             else:  # Definir novo valor
-                                                cursor = st.session_state.db.conn.cursor()
+                                                conn = st.session_state.db.get_connection()
+                                                cursor = conn.cursor()
                                                 cursor.execute(
-                                                    "UPDATE produtos SET estoque = ? WHERE id = ?",
-                                                    (quantidade, produto['id'])
+                                                    "UPDATE produtos SET estoque = ?, data_atualizacao = ? WHERE id = ?",
+                                                    (quantidade, datetime.now(), produto['id'])
                                                 )
-                                                st.session_state.db.conn.commit()
+                                                conn.commit()
+                                                conn.close()
                                                 st.success(f"✅ Estoque definido para: {quantidade} unidades")
                                             
                                             # Registrar no histórico (se houver tabela de histórico)
