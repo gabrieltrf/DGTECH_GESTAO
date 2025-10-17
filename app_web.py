@@ -799,7 +799,6 @@ def show_vendas():
                     st.session_state.db.registrar_venda(
                         produto_id=produto_id,
                         quantidade=quantidade,
-                        preco_unitario=preco_unitario,
                         cliente=cliente or "",
                         observacoes=observacoes or ""
                     )
