@@ -269,6 +269,40 @@ class Database:
         conn.commit()
         conn.close()
     
+    def excluir_produto_permanente(self, produto_id: int):
+        """Exclui permanentemente um produto do banco de dados"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # Verificar se produto tem vendas
+            cursor.execute('SELECT COUNT(*) FROM vendas WHERE produto_id = ?', (produto_id,))
+            tem_vendas = cursor.fetchone()[0] > 0
+            
+            if tem_vendas:
+                raise Exception("Produto possui vendas registradas. Não é possível excluir.")
+            
+            # Excluir histórico de preços
+            cursor.execute('DELETE FROM historico_precos WHERE produto_id = ?', (produto_id,))
+            
+            # Excluir produto
+            cursor.execute('DELETE FROM produtos WHERE id = ?', (produto_id,))
+            
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+    
+    def atualizar_produto_status(self, produto_id: int, ativo: bool):
+        """Atualiza o status ativo/inativo de um produto"""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE produtos SET ativo = ? WHERE id = ?', (1 if ativo else 0, produto_id))
+        conn.commit()
+        conn.close()
+    
     def listar_produtos(self, apenas_ativos: bool = True) -> List[Dict]:
         """Lista todos os produtos"""
         conn = self.get_connection()
