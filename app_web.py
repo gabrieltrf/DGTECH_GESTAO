@@ -1360,38 +1360,91 @@ def show_configuracoes():
     with tab3:
         st.subheader("💾 Backup do Sistema")
         
+        st.warning("""
+        ⚠️ **IMPORTANTE**: O Streamlit Cloud usa armazenamento temporário. 
+        Seus dados são perdidos quando a aplicação é reiniciada ou atualizada.
+        
+        **Faça backup regularmente!**
+        """)
+        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.write("**Fazer Backup**")
-            if st.button("📥 Baixar Backup do Banco de Dados", use_container_width=True):
+            st.write("### 📥 Fazer Backup")
+            st.info("Baixe uma cópia do seu banco de dados para seu computador")
+            
+            if st.button("� Baixar Backup Agora", use_container_width=True, type="primary"):
                 try:
-                    import shutil
                     from datetime import datetime
                     
-                    # Copiar arquivo do banco
+                    # Nome do arquivo de backup
                     backup_name = f"backup_dgtech_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
-                    shutil.copy2("database.db", backup_name)
                     
-                    with open(backup_name, "rb") as file:
+                    # Ler o banco de dados atual
+                    with open("gestao_vendas.db", "rb") as file:
                         st.download_button(
-                            label="💾 Download Backup",
+                            label="💾 Clique aqui para baixar",
                             data=file,
                             file_name=backup_name,
                             mime="application/octet-stream",
-                            use_container_width=True
+                            use_container_width=True,
+                            type="primary"
                         )
-                    st.success("✅ Backup criado!")
+                    st.success("✅ Backup pronto para download!")
                 except Exception as e:
                     st.error(f"❌ Erro ao criar backup: {str(e)}")
         
         with col2:
-            st.write("**Restaurar Backup**")
-            uploaded_file = st.file_uploader("Selecione o arquivo de backup (.db)", type=['db'])
+            st.write("### 📤 Restaurar Backup")
+            st.info("Envie um arquivo de backup para restaurar seus dados")
             
-            if uploaded_file and st.button("📤 Restaurar", use_container_width=True):
-                st.warning("⚠️ Funcionalidade em desenvolvimento")
-                st.info("🔒 Por segurança, o restore precisa ser feito manualmente")
+            uploaded_file = st.file_uploader(
+                "Selecione o arquivo de backup (.db)", 
+                type=['db'],
+                help="Envie um arquivo de backup anterior"
+            )
+            
+            if uploaded_file is not None:
+                if st.button("� Restaurar Dados", use_container_width=True, type="secondary"):
+                    try:
+                        # Salvar o arquivo enviado
+                        with open("gestao_vendas.db", "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        st.success("✅ Backup restaurado com sucesso!")
+                        st.info("🔄 Recarregando aplicação...")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Erro ao restaurar backup: {str(e)}")
+        
+        # Informações adicionais
+        st.markdown("---")
+        st.write("### 📊 Informações do Banco de Dados")
+        
+        try:
+            import os
+            if os.path.exists("gestao_vendas.db"):
+                tamanho = os.path.getsize("gestao_vendas.db") / 1024  # KB
+                st.metric("Tamanho do Banco", f"{tamanho:.2f} KB")
+                
+                # Estatísticas
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    produtos = st.session_state.db.listar_produtos()
+                    st.metric("Produtos", len(produtos))
+                with col2:
+                    vendas = st.session_state.db.listar_vendas()
+                    st.metric("Vendas", len(vendas))
+                with col3:
+                    categorias = st.session_state.db.listar_categorias()
+                    st.metric("Categorias", len(categorias))
+                with col4:
+                    despesas = st.session_state.db.listar_despesas()
+                    st.metric("Despesas", len(despesas))
+            else:
+                st.warning("⚠️ Banco de dados não encontrado")
+        except Exception as e:
+            st.error(f"❌ Erro ao obter informações: {str(e)}")
 
 # Roteamento de páginas
 page = st.session_state.page
