@@ -200,8 +200,8 @@ def show_dashboard():
     resumo = st.session_state.db.get_resumo_vendas(data_inicio_str, data_fim_str)
     financeiro = st.session_state.db.get_lucro_periodo(data_inicio_str, data_fim_str)
     
-    # Calcular valor investido em estoque (preço de custo)
-    produtos = st.session_state.db.listar_produtos()
+    # Calcular valor investido em estoque (preço de custo) - incluir todos os produtos
+    produtos = st.session_state.db.listar_produtos(apenas_ativos=False)
     valor_estoque = sum(p['preco_custo'] * p['estoque'] for p in produtos)
     
     # Calcular margem média
