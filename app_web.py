@@ -351,7 +351,7 @@ def show_produtos():
     st.title("📦 Gestão de Produtos")
     
     # Tabs
-    tab1, tab2, tab3 = st.tabs(["📋 Lista de Produtos", "➕ Novo Produto", "⚠️ Alertas de Estoque"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📋 Lista de Produtos", "➕ Novo Produto", "⚠️ Alertas de Estoque", "📊 Atualizar Estoque"])
     
     with tab1:
         # Filtros
@@ -519,8 +519,11 @@ def show_produtos():
                         st.write(f"**Estoque Atual:** {produto['estoque']}")
                         st.write(f"**Estoque Mínimo:** {produto['estoque_minimo']}")
                     with col2:
-                        st.write(f"**Preço:** {Formatador.formatar_moeda(produto['preco_venda'])}")
-                        st.write(f"**Categoria:** {produto.get('categoria_nome', 'S/Cat')}")
+                        # Buscar detalhes completos do produto
+                        produto_completo = st.session_state.db.buscar_produto(produto['id'])
+                        if produto_completo:
+                            st.write(f"**Preço:** {Formatador.formatar_moeda(produto_completo['preco_venda'])}")
+                            st.write(f"**Categoria:** {produto_completo.get('categoria_nome', 'S/Cat')}")
                     with col3:
                         qtd_repor = st.number_input(
                             "Quantidade a repor",
@@ -529,11 +532,128 @@ def show_produtos():
                             key=f"repor_{produto['id']}"
                         )
                         if st.button(f"✅ Repor", key=f"btn_repor_{produto['id']}"):
-                            st.session_state.db.adicionar_estoque(produto['id'], qtd_repor)
+                            st.session_state.db.atualizar_estoque(produto['id'], qtd_repor)
                             st.success(f"✅ {qtd_repor} unidades adicionadas!")
                             st.rerun()
         else:
             st.success("✅ Todos os produtos com estoque adequado!")
+    
+    with tab4:
+        st.subheader("📊 Atualizar Estoque de Produtos")
+        
+        # Listar todos os produtos ativos
+        produtos = st.session_state.db.listar_produtos(apenas_ativos=True)
+        
+        if produtos:
+            # Busca de produto
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                busca_estoque = st.text_input("🔍 Buscar produto", placeholder="Digite o nome do produto...", key="busca_estoque")
+            with col2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🔄 Atualizar", use_container_width=True, key="btn_atualizar_estoque"):
+                    st.rerun()
+            
+            # Filtrar produtos
+            produtos_filtrados = produtos
+            if busca_estoque:
+                produtos_filtrados = [p for p in produtos if busca_estoque.lower() in p['nome'].lower()]
+            
+            if produtos_filtrados:
+                st.caption(f"📊 {len(produtos_filtrados)} produtos encontrados")
+                st.markdown("---")
+                
+                # Exibir produtos com formulário de atualização
+                for produto in produtos_filtrados:
+                    with st.expander(f"📦 {produto['nome']} - Estoque Atual: {produto['estoque']} unidades"):
+                        col1, col2, col3 = st.columns([2, 2, 2])
+                        
+                        with col1:
+                            st.write(f"**Categoria:** {produto.get('categoria_nome', 'Sem categoria')}")
+                            st.write(f"**Estoque Atual:** {produto['estoque']} unidades")
+                            st.write(f"**Estoque Mínimo:** {produto['estoque_minimo']} unidades")
+                            
+                            # Alerta de estoque baixo
+                            if produto['estoque'] <= produto['estoque_minimo']:
+                                st.warning("⚠️ Estoque abaixo do mínimo!")
+                        
+                        with col2:
+                            st.write(f"**Preço Custo:** {Formatador.formatar_moeda(produto['preco_custo'])}")
+                            st.write(f"**Preço Venda:** {Formatador.formatar_moeda(produto['preco_venda'])}")
+                            valor_estoque = produto['estoque'] * produto['preco_venda']
+                            st.write(f"**Valor em Estoque:** {Formatador.formatar_moeda(valor_estoque)}")
+                        
+                        with col3:
+                            # Formulário para atualização de estoque
+                            with st.form(key=f"form_estoque_{produto['id']}"):
+                                st.write("**Atualizar Estoque**")
+                                
+                                tipo_operacao = st.radio(
+                                    "Operação",
+                                    options=["➕ Adicionar", "➖ Remover", "✏️ Definir Novo Valor"],
+                                    key=f"tipo_op_{produto['id']}",
+                                    horizontal=True
+                                )
+                                
+                                quantidade = st.number_input(
+                                    "Quantidade",
+                                    min_value=0,
+                                    value=0,
+                                    key=f"qtd_{produto['id']}"
+                                )
+                                
+                                motivo = st.text_input(
+                                    "Motivo (opcional)",
+                                    placeholder="Ex: Compra, Devolução, Perda...",
+                                    key=f"motivo_{produto['id']}"
+                                )
+                                
+                                submitted = st.form_submit_button("💾 Atualizar Estoque", use_container_width=True, type="primary")
+                                
+                                if submitted:
+                                    if quantidade == 0 and tipo_operacao != "✏️ Definir Novo Valor":
+                                        st.error("❌ Informe uma quantidade válida!")
+                                    else:
+                                        try:
+                                            novo_estoque = produto['estoque']
+                                            
+                                            if tipo_operacao == "➕ Adicionar":
+                                                novo_estoque += quantidade
+                                                st.session_state.db.atualizar_estoque(produto['id'], quantidade)
+                                                st.success(f"✅ {quantidade} unidades adicionadas! Novo estoque: {novo_estoque}")
+                                                
+                                            elif tipo_operacao == "➖ Remover":
+                                                if quantidade > produto['estoque']:
+                                                    st.error(f"❌ Não é possível remover {quantidade} unidades. Estoque atual: {produto['estoque']}")
+                                                else:
+                                                    novo_estoque -= quantidade
+                                                    # Atualizar para o novo valor (estoque atual - quantidade)
+                                                    cursor = st.session_state.db.conn.cursor()
+                                                    cursor.execute(
+                                                        "UPDATE produtos SET estoque = ? WHERE id = ?",
+                                                        (novo_estoque, produto['id'])
+                                                    )
+                                                    st.session_state.db.conn.commit()
+                                                    st.success(f"✅ {quantidade} unidades removidas! Novo estoque: {novo_estoque}")
+                                                    
+                                            else:  # Definir novo valor
+                                                cursor = st.session_state.db.conn.cursor()
+                                                cursor.execute(
+                                                    "UPDATE produtos SET estoque = ? WHERE id = ?",
+                                                    (quantidade, produto['id'])
+                                                )
+                                                st.session_state.db.conn.commit()
+                                                st.success(f"✅ Estoque definido para: {quantidade} unidades")
+                                            
+                                            # Registrar no histórico (se houver tabela de histórico)
+                                            st.rerun()
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ Erro ao atualizar estoque: {str(e)}")
+            else:
+                st.info("📭 Nenhum produto encontrado com este nome")
+        else:
+            st.info("📭 Nenhum produto disponível em estoque!")
 
 def show_vendas():
     st.title("🛒 Gestão de Vendas")
