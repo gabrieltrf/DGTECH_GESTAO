@@ -200,9 +200,9 @@ def show_dashboard():
     resumo = st.session_state.db.get_resumo_vendas(data_inicio_str, data_fim_str)
     financeiro = st.session_state.db.get_lucro_periodo(data_inicio_str, data_fim_str)
     
-    # Calcular valor em estoque
+    # Calcular valor investido em estoque (preço de custo)
     produtos = st.session_state.db.listar_produtos()
-    valor_estoque = sum(p['preco_venda'] * p['estoque'] for p in produtos)
+    valor_estoque = sum(p['preco_custo'] * p['estoque'] for p in produtos)
     
     # Calcular margem média
     margem_media = 0
@@ -259,8 +259,9 @@ def show_dashboard():
     
     with col1:
         st.metric(
-            label="📦 Valor em Estoque",
-            value=Formatador.formatar_moeda(kpis['valor_estoque'])
+            label="� Capital em Estoque",
+            value=Formatador.formatar_moeda(kpis['valor_estoque']),
+            help="Valor total investido em produtos (preço de custo × quantidade)"
         )
     
     with col2:
@@ -580,8 +581,10 @@ def show_produtos():
                         with col2:
                             st.write(f"**Preço Custo:** {Formatador.formatar_moeda(produto['preco_custo'])}")
                             st.write(f"**Preço Venda:** {Formatador.formatar_moeda(produto['preco_venda'])}")
-                            valor_estoque = produto['estoque'] * produto['preco_venda']
-                            st.write(f"**Valor em Estoque:** {Formatador.formatar_moeda(valor_estoque)}")
+                            valor_investido = produto['estoque'] * produto['preco_custo']
+                            valor_potencial = produto['estoque'] * produto['preco_venda']
+                            st.write(f"**💰 Valor Investido:** {Formatador.formatar_moeda(valor_investido)}")
+                            st.write(f"**📈 Valor Potencial:** {Formatador.formatar_moeda(valor_potencial)}")
                         
                         with col3:
                             # Formulário para atualização de estoque
